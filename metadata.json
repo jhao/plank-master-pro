@@ -1,0 +1,7 @@
+{
+  "name": "Plank Master Pro",
+  "description": "A comprehensive plank training assistant with AI camera tracking, history analytics, and achievement sharing.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
