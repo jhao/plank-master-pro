@@ -39,7 +39,7 @@ const ProfileTab: React.FC = () => {
   if (!profile) return <div>Loading...</div>;
 
   return (
-    <div className="flex flex-col h-full bg-gray-900 pb-20 overflow-y-auto no-scrollbar">
+    <div className="flex flex-col h-full bg-gray-900 pb-20 overflow-y-auto no-scrollbar scroll-touch">
       
       {/* Header */}
       <div className="p-6">

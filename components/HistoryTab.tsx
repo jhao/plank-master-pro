@@ -105,7 +105,7 @@ const HistoryTab: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col h-full bg-gray-900 pb-20 overflow-y-auto no-scrollbar">
+    <div className="flex flex-col h-full bg-gray-900 pb-20 overflow-y-auto no-scrollbar scroll-touch">
       {/* Header Stat */}
       <div className="p-6 bg-gray-800 rounded-b-3xl shadow-xl">
         <h2 className="text-gray-400 text-sm font-medium mb-1 flex items-center gap-2">

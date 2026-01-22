@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { getLogs } from '../services/storageService';
-import { Trophy, Medal, Award, Share2, X, Download } from 'lucide-react';
+import { Trophy, Medal, Award, Share2, X, Download, Star } from 'lucide-react';
 import { Achievement } from '../types';
 
 const AchievementsTab: React.FC = () => {
@@ -47,6 +47,18 @@ const AchievementsTab: React.FC = () => {
 
     // Generate Achievements
     const list: Achievement[] = [];
+
+    // Newbie Achievement
+    list.push({
+        id: 'first-workout',
+        title: '初出茅庐',
+        description: '完成你的第一次平板支撑训练！',
+        icon: '🌟',
+        type: 'total',
+        threshold: 1,
+        unlockedAt: logs.length > 0 ? Date.now() : undefined
+    });
+
     const milestones = [5, 10, 20, 50, 100, 200, 300, 400, 500];
 
     milestones.forEach(day => {
@@ -80,7 +92,7 @@ const AchievementsTab: React.FC = () => {
   }, []);
 
   return (
-    <div className="flex flex-col h-full bg-gray-900 pb-20 overflow-y-auto no-scrollbar">
+    <div className="flex flex-col h-full bg-gray-900 pb-20 overflow-y-auto no-scrollbar scroll-touch">
       
       {/* Top Stats */}
       <div className="grid grid-cols-2 gap-4 p-6">
@@ -99,13 +111,13 @@ const AchievementsTab: React.FC = () => {
         <h3 className="text-gray-400 text-sm font-medium mb-4 flex items-center gap-2">
             <Award size={16}/> 成就墙
         </h3>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-2 gap-4 pb-10">
             {achievements.map((ach) => (
                 <button 
                     key={ach.id}
                     onClick={() => ach.unlockedAt && setSelectedAchievement(ach)}
                     className={`
-                        relative p-4 rounded-xl text-left transition-all duration-300 overflow-hidden
+                        relative p-4 rounded-xl text-left transition-all duration-300 overflow-hidden active:scale-95
                         ${ach.unlockedAt 
                             ? 'bg-gradient-to-br from-gray-800 to-gray-700 border border-yellow-500/30 hover:border-yellow-500 shadow-lg' 
                             : 'bg-gray-800/50 border border-gray-800 opacity-60 grayscale cursor-not-allowed'
@@ -116,7 +128,7 @@ const AchievementsTab: React.FC = () => {
                     <div className={`font-bold text-sm ${ach.unlockedAt ? 'text-white' : 'text-gray-500'}`}>
                         {ach.title}
                     </div>
-                    <div className="text-xs text-gray-500 mt-1 leading-tight">{ach.description}</div>
+                    <div className="text-xs text-gray-500 mt-1 leading-tight line-clamp-2">{ach.description}</div>
                     {ach.unlockedAt && (
                         <div className="absolute top-2 right-2 text-yellow-500">
                             <Medal size={16} fill="currentColor" />

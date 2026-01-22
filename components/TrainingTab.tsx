@@ -6,15 +6,20 @@ const MAX_DAILY_ATTEMPTS = 3;
 
 const TrainingTab: React.FC = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
+  
+  // States
   const [isTraining, setIsTraining] = useState(false);
+  const [countdown, setCountdown] = useState<number | null>(null); // For the 3s countdown
   const [timer, setTimer] = useState(0);
   const [permissionError, setPermissionError] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [dailyAttempts, setDailyAttempts] = useState(0);
+  
   const timerRef = useRef<number | null>(null);
+  const countdownRef = useRef<number | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
 
   useEffect(() => {
-    // Check daily attempts on mount
     const today = new Date().toISOString().split('T')[0];
     const logs = getDailyLogs(today);
     setDailyAttempts(logs.length);
@@ -23,7 +28,6 @@ const TrainingTab: React.FC = () => {
   const handleStreamSuccess = (stream: MediaStream) => {
     if (videoRef.current) {
       videoRef.current.srcObject = stream;
-      // iOS Safari requires explicit play() in some contexts, and handling the promise is safer
       videoRef.current.onloadedmetadata = () => {
         videoRef.current?.play().catch(e => console.error("Video play failed:", e));
       };
@@ -36,7 +40,6 @@ const TrainingTab: React.FC = () => {
     setPermissionError(false);
     setErrorMessage('');
 
-    // Check if browser supports mediaDevices
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       setPermissionError(true);
       setErrorMessage("浏览器不支持或未通过HTTPS访问");
@@ -44,7 +47,6 @@ const TrainingTab: React.FC = () => {
     }
 
     try {
-      // First try: Ideal settings for mobile (User facing, modest resolution)
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { 
           facingMode: 'user',
@@ -56,28 +58,15 @@ const TrainingTab: React.FC = () => {
       handleStreamSuccess(stream);
     } catch (err: any) {
       console.warn('Preferred camera settings failed, retrying with defaults...', err);
-      
-      // Fallback: Try minimal constraints
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
-          video: true, // Just ask for any video
+          video: true,
           audio: false,
         });
         handleStreamSuccess(stream);
       } catch (fallbackErr: any) {
-        console.error('Camera fallback error:', fallbackErr);
         setPermissionError(true);
-        
-        // Determine specific error message
-        if (fallbackErr.name === 'NotAllowedError' || fallbackErr.name === 'PermissionDeniedError') {
-            setErrorMessage("访问被拒绝，请检查浏览器权限设置");
-        } else if (fallbackErr.name === 'NotFoundError' || fallbackErr.name === 'DevicesNotFoundError') {
-            setErrorMessage("未检测到摄像头设备");
-        } else if (fallbackErr.name === 'NotReadableError' || fallbackErr.name === 'TrackStartError') {
-            setErrorMessage("摄像头可能被其他应用占用");
-        } else {
-            setErrorMessage(`无法启动摄像头: ${fallbackErr.name || '未知错误'}`);
-        }
+        setErrorMessage("无法启动摄像头，请检查权限");
       }
     }
   };
@@ -90,47 +79,102 @@ const TrainingTab: React.FC = () => {
     }
   };
 
-  const playBeep = () => {
+  // Improved Audio Logic
+  const playBeep = (currentSeconds: number) => {
     try {
-      const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
-      if (!AudioContext) return;
+      // Initialize Context if needed
+      if (!audioContextRef.current) {
+        const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+        if (AudioContext) {
+            audioContextRef.current = new AudioContext();
+        }
+      }
       
-      const ctx = new AudioContext();
+      const ctx = audioContextRef.current;
+      if (!ctx) return;
+      
+      // Ensure context is running (mobile browsers suspend it)
+      if (ctx.state === 'suspended') {
+        ctx.resume();
+      }
+
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
 
       osc.connect(gain);
       gain.connect(ctx.destination);
 
-      osc.type = 'sine';
-      osc.frequency.value = 880; // A5
-      gain.gain.setValueAtTime(0.1, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.00001, ctx.currentTime + 0.5);
+      osc.type = 'triangle'; // Louder and clearer than sine
+      
+      // Dynamic frequency based on time
+      // Base C5 (523Hz) and going up the scale every 10s
+      // 10s -> D5, 20s -> E5, etc.
+      const baseFreq = 523.25; 
+      const step = Math.floor(currentSeconds / 10) % 8; 
+      // Simple major scale intervals
+      const scale = [1, 9/8, 5/4, 4/3, 3/2, 5/3, 15/8, 2]; 
+      
+      osc.frequency.value = baseFreq * scale[step];
+      
+      // Louder volume
+      gain.gain.setValueAtTime(0.5, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.8);
 
       osc.start();
-      osc.stop(ctx.currentTime + 0.5);
+      osc.stop(ctx.currentTime + 0.8);
+
     } catch (e) {
       console.error("Audio play failed", e);
     }
   };
 
-  const handleStart = async () => {
+  const initAudio = () => {
+      // Create context on user interaction to unlock audio on iOS
+      if (!audioContextRef.current) {
+          const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+          if (AudioContext) {
+              audioContextRef.current = new AudioContext();
+          }
+      }
+  };
+
+  const handleStartSequence = async () => {
     if (dailyAttempts >= MAX_DAILY_ATTEMPTS) {
       alert("您今天的训练次数已用完 (3次)，请明天再来！");
       return;
     }
 
+    initAudio(); // Unlock audio immediately on click
     await startCamera();
     
+    // Start Countdown
+    setCountdown(3);
+    
+    countdownRef.current = window.setInterval(() => {
+        setCountdown((prev) => {
+            if (prev === null || prev <= 1) {
+                // Countdown finished
+                if (countdownRef.current) clearInterval(countdownRef.current);
+                startActualTraining();
+                return null;
+            }
+            return prev - 1;
+        });
+    }, 1000);
+  };
+
+  const startActualTraining = () => {
     setIsTraining(true);
     setTimer(0);
     
-    // Start Timer
+    // Play start sound
+    playBeep(0);
+
     timerRef.current = window.setInterval(() => {
       setTimer((prev) => {
         const next = prev + 1;
         if (next > 0 && next % 10 === 0) {
-          playBeep();
+          playBeep(next);
         }
         return next;
       });
@@ -138,17 +182,18 @@ const TrainingTab: React.FC = () => {
   };
 
   const handleStop = () => {
-    if (timerRef.current) {
-      clearInterval(timerRef.current);
-    }
+    if (timerRef.current) clearInterval(timerRef.current);
+    if (countdownRef.current) clearInterval(countdownRef.current);
+    
     stopCamera();
     setIsTraining(false);
+    setCountdown(null);
     
-    if (timer > 5) { // Only save if > 5 seconds to avoid accidental clicks
+    if (timer > 5) {
       saveLog(timer);
       setDailyAttempts(prev => prev + 1);
       alert(`训练结束！本次成绩: ${formatTime(timer)}`);
-    } else {
+    } else if (timer > 0) {
       alert("时间太短，未记录成绩");
     }
   };
@@ -157,6 +202,8 @@ const TrainingTab: React.FC = () => {
     return () => {
       stopCamera();
       if (timerRef.current) clearInterval(timerRef.current);
+      if (countdownRef.current) clearInterval(countdownRef.current);
+      if (audioContextRef.current) audioContextRef.current.close();
     };
   }, []);
 
@@ -168,22 +215,30 @@ const TrainingTab: React.FC = () => {
 
   return (
     <div className="flex flex-col h-full bg-gray-900 pb-20">
-      {/* Top Video Section - 25% height (Using vh for Safari stability) */}
+      {/* Top Video Section - Fixed Height */}
       <div className="h-[25vh] w-full bg-black relative overflow-hidden border-b border-gray-800 shrink-0">
         <video
           ref={videoRef}
           autoPlay
           playsInline
           muted
-          // Removed tailwind transform, using inline style for better Safari support
-          // Added z-0 to ensure proper stacking
           className="absolute inset-0 w-full h-full object-cover z-0" 
           style={{ 
             transform: 'scaleX(-1) translate3d(0,0,0)', 
-            WebkitTransform: 'scaleX(-1) translate3d(0,0,0)' // Safari specific fix
+            WebkitTransform: 'scaleX(-1) translate3d(0,0,0)'
           }}
         />
-        {!isTraining && !permissionError && (
+        
+        {/* Countdown Overlay */}
+        {countdown !== null && (
+             <div className="absolute inset-0 flex items-center justify-center bg-black/40 z-30 backdrop-blur-sm">
+                 <div className="text-9xl font-black text-yellow-400 animate-bounce drop-shadow-[0_0_15px_rgba(250,204,21,0.8)]">
+                     {countdown}
+                 </div>
+             </div>
+        )}
+
+        {!isTraining && countdown === null && !permissionError && (
           <div className="absolute inset-0 flex items-center justify-center bg-black/60 z-10 pointer-events-none">
             <div className="text-center text-gray-400">
               <Camera size={48} className="mx-auto mb-2 opacity-50" />
@@ -202,8 +257,8 @@ const TrainingTab: React.FC = () => {
         )}
       </div>
 
-      {/* Main Controls Section */}
-      <div className="flex-1 flex flex-col items-center justify-start py-4 px-6 space-y-4 overflow-y-auto no-scrollbar">
+      {/* Main Controls Section - Scrollable with smooth touch */}
+      <div className="flex-1 flex flex-col items-center justify-start py-4 px-6 space-y-4 overflow-y-auto no-scrollbar scroll-touch">
         
         {/* Demonstration Image */}
         <div className="w-full max-w-[280px] bg-gray-800 rounded-xl overflow-hidden border border-gray-700 shadow-lg shrink-0">
@@ -233,26 +288,39 @@ const TrainingTab: React.FC = () => {
 
         {/* Action Button */}
         <button
-          onClick={isTraining ? handleStop : handleStart}
+          onClick={isTraining || countdown !== null ? handleStop : handleStartSequence}
+          disabled={countdown !== null} // Disable button during countdown
           className={`
             w-24 h-24 rounded-full flex items-center justify-center
             transition-all duration-300 shadow-2xl shrink-0
             ${isTraining 
               ? 'bg-red-500 hover:bg-red-600 animate-pulse ring-4 ring-red-500/30' 
-              : 'bg-green-500 hover:bg-green-600 ring-4 ring-green-500/30'
+              : countdown !== null
+                ? 'bg-yellow-500 ring-4 ring-yellow-500/30 cursor-wait'
+                : 'bg-green-500 hover:bg-green-600 ring-4 ring-green-500/30 active:scale-95'
             }
           `}
         >
           {isTraining ? (
             <Square size={36} fill="currentColor" className="text-white" />
+          ) : countdown !== null ? (
+            <span className="text-3xl font-black text-black">{countdown}</span>
           ) : (
             <Play size={36} fill="currentColor" className="text-white ml-1.5" />
           )}
         </button>
 
-        <div className="text-center text-gray-500 text-xs shrink-0">
-          {isTraining ? '保持核心收紧，每10秒会有提示音' : '点击按钮开始计时'}
+        <div className="text-center text-gray-500 text-xs shrink-0 px-8">
+          {isTraining 
+            ? '坚持就是胜利！每10秒音调会升高' 
+            : countdown !== null 
+                ? '准备姿势...' 
+                : '点击按钮开启3秒倒计时'
+          }
         </div>
+        
+        {/* Spacer for bottom nav */}
+        <div className="h-8 shrink-0"></div>
       </div>
     </div>
   );

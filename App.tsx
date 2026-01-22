@@ -32,7 +32,7 @@ const App: React.FC = () => {
   ];
 
   return (
-    <div className="h-full flex flex-col max-w-md mx-auto bg-gray-900 shadow-2xl relative">
+    <div className="h-[100dvh] w-full flex flex-col max-w-md mx-auto bg-gray-900 shadow-2xl relative overflow-hidden">
       
       {/* Main Content Area */}
       <main className="flex-1 h-full overflow-hidden relative z-0">
@@ -40,16 +40,16 @@ const App: React.FC = () => {
       </main>
 
       {/* Bottom Navigation */}
-      <nav className="fixed bottom-0 left-0 right-0 z-50 bg-gray-900/90 backdrop-blur-lg border-t border-gray-800 pb-safe">
-        <div className="flex justify-around items-center h-16 max-w-md mx-auto">
+      <nav className="absolute bottom-0 left-0 right-0 z-50 bg-gray-900/95 backdrop-blur-lg border-t border-gray-800 pb-safe safe-area-inset-bottom">
+        <div className="flex justify-around items-center h-16 max-w-md mx-auto px-2">
           {navItems.map((item) => {
             const isActive = activeTab === item.id;
             return (
               <button
                 key={item.id}
                 onClick={() => setActiveTab(item.id)}
-                className={`flex flex-col items-center justify-center w-full h-full space-y-1 transition-all duration-200 ${
-                  isActive ? 'text-green-500 scale-105' : 'text-gray-500 hover:text-gray-300'
+                className={`flex flex-col items-center justify-center w-full h-full space-y-1 active:scale-95 transition-all duration-200 ${
+                  isActive ? 'text-green-500' : 'text-gray-500 hover:text-gray-300'
                 }`}
               >
                 <item.icon size={24} strokeWidth={isActive ? 2.5 : 2} />
@@ -59,9 +59,6 @@ const App: React.FC = () => {
           })}
         </div>
       </nav>
-      
-      {/* iOS Safe Area Padding Hack for web */}
-      <div className="h-safe-bottom w-full bg-gray-900"></div>
     </div>
   );
 };
