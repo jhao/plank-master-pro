@@ -169,19 +169,19 @@ const TrainingTab: React.FC = () => {
   return (
     <div className="flex flex-col h-full bg-gray-900 pb-20">
       {/* Top Video Section - 25% height */}
-      <div className="h-1/4 w-full bg-black relative overflow-hidden flex items-center justify-center border-b border-gray-800 shrink-0">
+      <div className="h-1/4 w-full bg-black relative overflow-hidden border-b border-gray-800 shrink-0">
         <video
           ref={videoRef}
           autoPlay
           playsInline
           muted
-          className="h-full w-full object-cover transform scale-x-[-1]" 
+          className="absolute inset-0 w-full h-full object-cover transform scale-x-[-1]" 
         />
         {!isTraining && !permissionError && (
-          <div className="absolute inset-0 flex items-center justify-center bg-black/60 z-10">
+          <div className="absolute inset-0 flex items-center justify-center bg-black/60 z-10 pointer-events-none">
             <div className="text-center text-gray-400">
               <Camera size={48} className="mx-auto mb-2 opacity-50" />
-              <p>点击开始启用摄像头</p>
+              <p>点击下方开始按钮启用摄像头</p>
             </div>
           </div>
         )}
