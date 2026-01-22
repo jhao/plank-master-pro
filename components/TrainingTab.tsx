@@ -203,7 +203,7 @@ const TrainingTab: React.FC = () => {
         <div className="w-full max-w-[280px] bg-gray-800 rounded-xl overflow-hidden border border-gray-700 shadow-lg shrink-0">
              <div className="relative h-24 w-full">
                 <img 
-                  src="https://images.unsplash.com/photo-1566241440091-ec10de8db2e1?auto=format&fit=crop&w=600&q=80" 
+                  src="https://static.vecteezy.com/system/resources/thumbnails/008/573/039/small/man-doing-plank-abdominals-exercise-flat-illustration-isolated-on-white-background-vector.jpg" 
                   alt="Standard Plank Position"
                   className="w-full h-full object-cover opacity-90"
                 />
