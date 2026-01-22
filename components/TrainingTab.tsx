@@ -9,6 +9,7 @@ const TrainingTab: React.FC = () => {
   const [isTraining, setIsTraining] = useState(false);
   const [timer, setTimer] = useState(0);
   const [permissionError, setPermissionError] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
   const [dailyAttempts, setDailyAttempts] = useState(0);
   const timerRef = useRef<number | null>(null);
 
@@ -19,19 +20,65 @@ const TrainingTab: React.FC = () => {
     setDailyAttempts(logs.length);
   }, []);
 
+  const handleStreamSuccess = (stream: MediaStream) => {
+    if (videoRef.current) {
+      videoRef.current.srcObject = stream;
+      // iOS Safari requires explicit play() in some contexts, and handling the promise is safer
+      videoRef.current.onloadedmetadata = () => {
+        videoRef.current?.play().catch(e => console.error("Video play failed:", e));
+      };
+    }
+    setPermissionError(false);
+    setErrorMessage('');
+  };
+
   const startCamera = async () => {
+    setPermissionError(false);
+    setErrorMessage('');
+
+    // Check if browser supports mediaDevices
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      setPermissionError(true);
+      setErrorMessage("浏览器不支持或未通过HTTPS访问");
+      return;
+    }
+
     try {
+      // First try: Ideal settings for mobile (User facing, modest resolution)
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'user' },
+        video: { 
+          facingMode: 'user',
+          width: { ideal: 640 },
+          height: { ideal: 480 }
+        },
         audio: false,
       });
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
+      handleStreamSuccess(stream);
+    } catch (err: any) {
+      console.warn('Preferred camera settings failed, retrying with defaults...', err);
+      
+      // Fallback: Try minimal constraints
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: true, // Just ask for any video
+          audio: false,
+        });
+        handleStreamSuccess(stream);
+      } catch (fallbackErr: any) {
+        console.error('Camera fallback error:', fallbackErr);
+        setPermissionError(true);
+        
+        // Determine specific error message
+        if (fallbackErr.name === 'NotAllowedError' || fallbackErr.name === 'PermissionDeniedError') {
+            setErrorMessage("访问被拒绝，请检查浏览器权限设置");
+        } else if (fallbackErr.name === 'NotFoundError' || fallbackErr.name === 'DevicesNotFoundError') {
+            setErrorMessage("未检测到摄像头设备");
+        } else if (fallbackErr.name === 'NotReadableError' || fallbackErr.name === 'TrackStartError') {
+            setErrorMessage("摄像头可能被其他应用占用");
+        } else {
+            setErrorMessage(`无法启动摄像头: ${fallbackErr.name || '未知错误'}`);
+        }
       }
-      setPermissionError(false);
-    } catch (err) {
-      console.error('Camera error:', err);
-      setPermissionError(true);
     }
   };
 
@@ -74,6 +121,7 @@ const TrainingTab: React.FC = () => {
     }
 
     await startCamera();
+    
     setIsTraining(true);
     setTimer(0);
     
@@ -121,7 +169,7 @@ const TrainingTab: React.FC = () => {
   return (
     <div className="flex flex-col h-full bg-gray-900 pb-20">
       {/* Top Video Section - 25% height */}
-      <div className="h-1/4 w-full bg-black relative overflow-hidden flex items-center justify-center border-b border-gray-800">
+      <div className="h-1/4 w-full bg-black relative overflow-hidden flex items-center justify-center border-b border-gray-800 shrink-0">
         <video
           ref={videoRef}
           autoPlay
@@ -138,25 +186,42 @@ const TrainingTab: React.FC = () => {
           </div>
         )}
         {permissionError && (
-          <div className="absolute inset-0 flex items-center justify-center bg-red-900/80 z-20 px-4">
+          <div className="absolute inset-0 flex items-center justify-center bg-red-900/90 z-20 px-4">
              <div className="text-center text-white">
-              <AlertCircle size={48} className="mx-auto mb-2" />
-              <p>无法访问摄像头。请检查权限设置。</p>
+              <AlertCircle size={48} className="mx-auto mb-2 text-red-500" />
+              <p className="font-bold mb-1">无法访问摄像头</p>
+              <p className="text-sm text-gray-300">{errorMessage || '请检查权限设置'}</p>
             </div>
           </div>
         )}
       </div>
 
       {/* Main Controls Section */}
-      <div className="flex-1 flex flex-col items-center justify-center p-6 space-y-8">
+      <div className="flex-1 flex flex-col items-center justify-start py-4 px-6 space-y-4 overflow-y-auto no-scrollbar">
         
+        {/* Demonstration Image */}
+        <div className="w-full max-w-[280px] bg-gray-800 rounded-xl overflow-hidden border border-gray-700 shadow-lg shrink-0">
+             <div className="relative h-24 w-full">
+                <img 
+                  src="https://images.unsplash.com/photo-1566241440091-ec10de8db2e1?auto=format&fit=crop&w=600&q=80" 
+                  alt="Standard Plank Position"
+                  className="w-full h-full object-cover opacity-90"
+                />
+                <div className="absolute bottom-0 left-0 right-0 bg-black/50 backdrop-blur-[2px] py-1">
+                    <p className="text-center text-[10px] text-gray-200">
+                        保持身体成一直线，核心收紧
+                    </p>
+                </div>
+             </div>
+        </div>
+
         {/* Timer Display */}
-        <div className="text-8xl font-black font-mono tracking-tighter text-transparent bg-clip-text bg-gradient-to-br from-green-400 to-emerald-600 drop-shadow-lg">
+        <div className="text-7xl font-black font-mono tracking-tighter text-transparent bg-clip-text bg-gradient-to-br from-green-400 to-emerald-600 drop-shadow-lg shrink-0">
           {formatTime(timer)}
         </div>
 
         {/* Daily Stats Mini View */}
-        <div className="text-gray-400 text-sm font-medium bg-gray-800 px-4 py-2 rounded-full">
+        <div className="text-gray-400 text-xs font-medium bg-gray-800 px-4 py-1.5 rounded-full shrink-0">
           今日已打卡: <span className="text-white">{dailyAttempts}</span> / {MAX_DAILY_ATTEMPTS}
         </div>
 
@@ -164,8 +229,8 @@ const TrainingTab: React.FC = () => {
         <button
           onClick={isTraining ? handleStop : handleStart}
           className={`
-            w-32 h-32 rounded-full flex items-center justify-center
-            transition-all duration-300 shadow-2xl
+            w-24 h-24 rounded-full flex items-center justify-center
+            transition-all duration-300 shadow-2xl shrink-0
             ${isTraining 
               ? 'bg-red-500 hover:bg-red-600 animate-pulse ring-4 ring-red-500/30' 
               : 'bg-green-500 hover:bg-green-600 ring-4 ring-green-500/30'
@@ -173,13 +238,13 @@ const TrainingTab: React.FC = () => {
           `}
         >
           {isTraining ? (
-            <Square size={48} fill="currentColor" className="text-white" />
+            <Square size={36} fill="currentColor" className="text-white" />
           ) : (
-            <Play size={48} fill="currentColor" className="text-white ml-2" />
+            <Play size={36} fill="currentColor" className="text-white ml-1.5" />
           )}
         </button>
 
-        <div className="text-center text-gray-500 text-sm">
+        <div className="text-center text-gray-500 text-xs shrink-0">
           {isTraining ? '保持核心收紧，每10秒会有提示音' : '点击按钮开始计时'}
         </div>
       </div>
