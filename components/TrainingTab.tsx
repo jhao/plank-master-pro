@@ -168,14 +168,20 @@ const TrainingTab: React.FC = () => {
 
   return (
     <div className="flex flex-col h-full bg-gray-900 pb-20">
-      {/* Top Video Section - 25% height */}
-      <div className="h-1/4 w-full bg-black relative overflow-hidden border-b border-gray-800 shrink-0">
+      {/* Top Video Section - 25% height (Using vh for Safari stability) */}
+      <div className="h-[25vh] w-full bg-black relative overflow-hidden border-b border-gray-800 shrink-0">
         <video
           ref={videoRef}
           autoPlay
           playsInline
           muted
-          className="absolute inset-0 w-full h-full object-cover transform scale-x-[-1]" 
+          // Removed tailwind transform, using inline style for better Safari support
+          // Added z-0 to ensure proper stacking
+          className="absolute inset-0 w-full h-full object-cover z-0" 
+          style={{ 
+            transform: 'scaleX(-1) translate3d(0,0,0)', 
+            WebkitTransform: 'scaleX(-1) translate3d(0,0,0)' // Safari specific fix
+          }}
         />
         {!isTraining && !permissionError && (
           <div className="absolute inset-0 flex items-center justify-center bg-black/60 z-10 pointer-events-none">
